@@ -2,42 +2,39 @@ import { AppDataSource } from './data-source';
 import { User } from './entity/User';
 import express, { NextFunction, Request, Response } from 'express';
 import colors from 'colors';
-import { errorHandler, IError } from './middlewares/handlerError.middleware';
+import { errorHandler, notFound } from './middlewares/handlerError.middleware';
 const port = 3000;
 const startServer = () => {
     const app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
-
-    // Not working transaction
     app.get('/', async (req: Request, res: Response, next: NextFunction) => {
-        const queryRunner = AppDataSource.createQueryRunner();
-        await queryRunner.connect();
         try {
-            await queryRunner.startTransaction();
+            let msg: string;
+            const userRepo = AppDataSource.getRepository(User);
             const user = new User();
             user.firstName = 'Dung';
             user.lastName = 'Tran';
             user.age = 23;
-            const savedUser = await queryRunner.manager.save(User, user);
-            const findUser = await queryRunner.manager.findOne(User, {
+            const savedUser = await userRepo.save(user);
+            const findUser = await userRepo.findOne({
                 where: {
                     firstName: 'Mai',
                 },
             });
-            if (findUser === null) {
-                throw new IError('Không tìm thấy user', 404);
+            if (!findUser) {
+                msg = 'User not found and rollback';
+                await userRepo.delete(savedUser);
             }
-            await queryRunner.commitTransaction();
-            return res.json({ user: savedUser, findUser });
+            if (msg) {
+                return res.status(400).json({ msg });
+            }
+            return res.status(201).json({ user });
         } catch (error) {
-            await queryRunner.rollbackTransaction();
             next(error);
-        } finally {
-            await queryRunner.release();
         }
     });
-    // app.use(notFound);
+    app.use(notFound);
     app.use(errorHandler);
     app.listen(port, () => {
         console.log(colors.green(`Server listening on http://localhost:${port}`));

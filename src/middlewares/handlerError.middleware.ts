@@ -12,7 +12,6 @@ export const notFound = (req: Request, res: Response, next: NextFunction) => {
     next(error);
 };
 export const errorHandler = (error: IError, req: Request, res: Response, next: NextFunction) => {
-    console.log(error);
     const statusCode = res.statusCode == 200 ? 500 : res.statusCode;
     if (error.statusCode) {
         res.status(error?.statusCode);
